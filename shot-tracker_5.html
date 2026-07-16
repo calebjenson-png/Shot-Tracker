@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Shot Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Teko:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --wood-light:#C98A4B;
+    --wood-mid:#B3763B;
+    --wood-dark:#7A4A24;
+    --ink:#201C18;
+    --chalk:#F6F1E4;
+    --paper:#F1EADA;
+    --card:#FFFCF5;
+    --ball:#E2571A;
+    --ball-dark:#B7420F;
+    --make:#2F9E52;
+    --make-dim:#CFE9D7;
+    --miss:#C4453B;
+    --miss-dim:#F1D4D1;
+    --line-muted: rgba(32,28,24,0.35);
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+  html,body{margin:0; padding:0; background:var(--paper); color:var(--ink); font-family:'Inter',sans-serif;}
+  body{
+    padding-top: calc(var(--safe-top));
+    padding-bottom: calc(24px + var(--safe-bottom));
+    min-height:100vh;
+  }
+  .mono{font-family:'Space Mono',monospace;}
+  .display{font-family:'Teko',sans-serif; font-weight:600; letter-spacing:0.5px;}
+
+  /* ---------- Top bar ---------- */
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 18px 10px;
+    background: var(--ink);
+    color: var(--chalk);
+    border-bottom: 3px solid var(--ball);
+  }
+  .topbar h1{
+    font-family:'Teko',sans-serif; font-weight:700; font-size:30px; margin:0; letter-spacing:1px;
+    line-height:1;
+  }
+  .topbar .sub{
+    font-family:'Space Mono',monospace; font-size:11px; opacity:0.65; margin-top:2px; text-transform:uppercase; letter-spacing:1px;
+  }
+  .icon-btn{
+    background:none; border:1.5px solid rgba(246,241,228,0.35); color:var(--chalk);
+    width:40px; height:40px; border-radius:10px; font-size:18px;
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+  }
+  .icon-btn:active{ background: rgba(246,241,228,0.15); }
+
+  .sync-pill{
+    display:inline-flex; align-items:center; gap:5px; font-family:'Space Mono',monospace;
+    font-size:10px; text-transform:uppercase; letter-spacing:0.5px; padding:3px 8px; border-radius:20px;
+    background:rgba(246,241,228,0.1); margin-top:4px;
+  }
+  .dot{width:6px;height:6px;border-radius:50%; background:#8a8a8a;}
+  .dot.on{background:var(--make);}
+  .dot.off{background:var(--miss);}
+
+  /* ---------- Date bar ---------- */
+  .date-bar{
+    display:flex; align-items:flex-end; gap:10px; padding:12px 18px 0;
+  }
+  .date-bar-field{ flex:1; }
+  .date-bar-field label{
+    display:block; font-family:'Space Mono',monospace; font-size:10px; text-transform:uppercase;
+    letter-spacing:0.5px; color:var(--wood-dark); margin-bottom:5px;
+  }
+  .date-bar-field input[type=date]{
+    width:100%; padding:10px 12px; border-radius:10px; border:1.5px solid rgba(32,28,24,0.2);
+    font-family:'Inter'; font-size:14px; color:var(--ink); background:var(--card);
+  }
+  .today-btn{
+    padding:10px 16px; border-radius:10px; border:1.5px solid var(--wood-mid); background:var(--card);
+    font-family:'Inter'; font-weight:600; font-size:13px; color:var(--wood-dark); cursor:pointer; white-space:nowrap;
+  }
+  .today-btn:active{ background:var(--paper); }
+  .past-day-flag{
+    display:none; margin:10px 18px 0; padding:9px 12px; border-radius:10px; background:var(--miss-dim);
+    color:#7a2c24; font-size:12px; font-weight:600; line-height:1.4;
+  }
+  .past-day-flag.show{ display:block; }
+
+  /* ---------- Scoreboard ---------- */
+  .scoreboard{
+    display:flex; padding:16px 18px 4px; gap:10px;
+  }
+  .score-card{
+    flex:1; background:var(--ink); color:var(--chalk); border-radius:14px; padding:12px 14px;
+    position:relative; overflow:hidden;
+  }
+  .score-card.big{flex:1.3;}
+  .score-card .label{font-family:'Space Mono',monospace; font-size:10px; text-transform:uppercase; letter-spacing:1px; opacity:0.6;}
+  .score-card .value{font-family:'Teko',sans-serif; font-weight:700; font-size:42px; line-height:1.05; margin-top:2px;}
+  .score-card .value small{font-size:20px; font-weight:500; opacity:0.7;}
+  .score-card.accent{ background: linear-gradient(135deg, var(--ball), var(--ball-dark)); }
+
+  /* ---------- Court ---------- */
+  .court-section{ padding: 14px 18px 4px; }
+  .court-frame{
+    position:relative; width:100%; max-width:460px; margin:0 auto;
+    border-radius:18px; padding:8px;
+    background: linear-gradient(180deg, var(--wood-light), var(--wood-mid));
+    box-shadow: 0 8px 24px rgba(122,74,36,0.35), inset 0 0 0 1px rgba(122,74,36,0.4);
+  }
+  .court-frame svg{ display:block; width:100%; height:auto; touch-action: manipulation; }
+  .court-hint{
+    text-align:center; font-family:'Space Mono',monospace; font-size:11px; color:var(--wood-dark);
+    margin-top:8px; opacity:0.75;
+  }
+
+  /* ---------- Bottom sheet ---------- */
+  .overlay{
+    position:fixed; inset:0; background:rgba(20,16,12,0.55); z-index:40;
+    opacity:0; pointer-events:none; transition:opacity 0.18s ease;
+  }
+  .overlay.show{ opacity:1; pointer-events:auto; }
+  .sheet{
+    position:fixed; left:0; right:0; bottom:0; z-index:41;
+    background:var(--card); border-radius:20px 20px 0 0;
+    padding:18px 20px calc(20px + var(--safe-bottom));
+    transform: translateY(110%); transition: transform 0.22s cubic-bezier(.2,.8,.3,1);
+    box-shadow: 0 -6px 24px rgba(0,0,0,0.25);
+  }
+  .sheet.show{ transform: translateY(0); }
+  .sheet .zone-name{ font-family:'Teko',sans-serif; font-size:30px; font-weight:600; }
+  .sheet .zone-pts{ font-family:'Space Mono',monospace; font-size:12px; color:var(--wood-dark); text-transform:uppercase; letter-spacing:1px; }
+  .shot-actions{ display:flex; gap:10px; margin-top:16px; }
+  .mode-toggle{ display:flex; gap:6px; margin-top:14px; background:var(--paper); border-radius:12px; padding:4px; }
+  .mode-btn{
+    flex:1; border:none; background:none; padding:9px 0; border-radius:9px; font-family:'Inter'; font-weight:600;
+    font-size:12.5px; color:var(--wood-dark); cursor:pointer;
+  }
+  .mode-btn.active{ background:var(--ink); color:var(--chalk); }
+  .batch-row{ display:flex; gap:10px; margin-top:16px; }
+  .batch-field{ flex:1; }
+  .batch-field label{
+    display:block; font-family:'Space Mono',monospace; font-size:10px; text-transform:uppercase;
+    letter-spacing:0.5px; color:var(--wood-dark); margin-bottom:5px;
+  }
+  .batch-field input{
+    width:100%; padding:14px 10px; border-radius:12px; border:1.5px solid rgba(32,28,24,0.2);
+    font-family:'Teko',sans-serif; font-size:26px; font-weight:600; text-align:center; color:var(--ink);
+  }
+  .batch-field input:focus{ outline:none; border-color:var(--ball); }
+  .batch-error{ color:var(--miss); font-size:12px; margin-top:8px; min-height:14px; }
+  .batch-submit{ width:100%; background:var(--ball); margin-top:2px; }
+  .shot-btn{
+    flex:1; border:none; border-radius:14px; padding:18px 0; font-family:'Teko',sans-serif;
+    font-size:26px; font-weight:700; letter-spacing:1px; color:white; cursor:pointer;
+  }
+  .shot-btn.make{ background:var(--make); }
+  .shot-btn.miss{ background:var(--miss); }
+  .shot-btn:active{ filter:brightness(0.9); }
+  .cancel-row{ text-align:center; margin-top:10px; }
+  .cancel-row button{ background:none; border:none; color:var(--wood-dark); font-family:'Inter'; font-size:13px; padding:8px; cursor:pointer; }
+
+  /* ---------- Zone stats ---------- */
+  .zone-stats{ padding:18px 18px 4px; }
+  .section-title{
+    display:flex; align-items:baseline; justify-content:space-between; margin-bottom:8px;
+  }
+  .section-title h2{ font-family:'Teko',sans-serif; font-size:22px; margin:0; letter-spacing:0.5px; }
+  .section-title .undo{ font-family:'Space Mono',monospace; font-size:11px; color:var(--miss); background:none; border:none; cursor:pointer; }
+  .zone-row{
+    display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid rgba(32,28,24,0.08);
+  }
+  .zone-row .zname{ flex:1.4; font-size:13px; font-weight:600; }
+  .zone-row .zbar-wrap{ flex:1.6; height:8px; background:rgba(32,28,24,0.08); border-radius:6px; overflow:hidden; }
+  .zone-row .zbar{ height:100%; background:var(--make); border-radius:6px; }
+  .zone-row .zpct{ width:80px; text-align:right; font-family:'Space Mono',monospace; font-size:12px; }
+  .zone-row.empty .zbar{ background:transparent; }
+  .zone-row.empty .zpct{ opacity:0.35; }
+
+  /* ---------- History ---------- */
+  .history{ padding:20px 18px 4px; }
+  .history .refresh-btn{
+    width:100%; padding:12px; border-radius:12px; border:1.5px solid var(--wood-mid); background:var(--card);
+    font-family:'Inter'; font-weight:600; font-size:13px; color:var(--wood-dark); cursor:pointer; margin-bottom:12px;
+  }
+  .history .refresh-btn:active{ background:var(--paper); }
+  .granularity-toggle{ display:flex; gap:6px; margin:2px 0 14px; background:var(--paper); border-radius:12px; padding:4px; }
+  .gran-btn{
+    flex:1; border:none; background:none; padding:9px 0; border-radius:9px; font-family:'Inter'; font-weight:600;
+    font-size:12.5px; color:var(--wood-dark); cursor:pointer;
+  }
+  .gran-btn.active{ background:var(--ink); color:var(--chalk); }
+  .trend-summary{
+    font-family:'Space Mono',monospace; font-size:12px; color:var(--wood-dark); margin-bottom:10px; min-height:16px; line-height:1.5;
+  }
+  .trend-summary .up{ color:var(--make); font-weight:700; }
+  .trend-summary .down{ color:var(--miss); font-weight:700; }
+  .chart-wrap{ margin-bottom:16px; background:var(--card); border-radius:14px; padding:6px 4px 2px; }
+  .chart-wrap svg{ width:100%; height:auto; display:block; }
+  .chart-note{ font-size:11px; color:var(--wood-dark); opacity:0.7; text-align:center; margin-top:2px; }
+  .day-row{
+    display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid rgba(32,28,24,0.08);
+  }
+  .day-row .ddate{ width:92px; font-family:'Space Mono',monospace; font-size:10.5px; }
+  .day-row .dbar-wrap{ flex:1; height:10px; background:rgba(32,28,24,0.08); border-radius:6px; overflow:hidden; }
+  .day-row .dbar{ height:100%; background: linear-gradient(90deg, var(--ball), var(--ball-dark)); }
+  .day-row .dpct{ width:96px; text-align:right; font-family:'Space Mono',monospace; font-size:11px; }
+  .empty-note{ font-size:12px; color:var(--wood-dark); opacity:0.75; padding:8px 0; }
+
+  /* ---------- Settings modal ---------- */
+  .modal{
+    position:fixed; inset:0; z-index:50; display:none; align-items:flex-end; justify-content:center;
+  }
+  .modal.show{ display:flex; }
+  .modal .backdrop{ position:absolute; inset:0; background:rgba(20,16,12,0.55); }
+  .modal .panel{
+    position:relative; background:var(--card); width:100%; max-width:520px; border-radius:20px 20px 0 0;
+    padding:20px 20px calc(20px + var(--safe-bottom)); max-height:88vh; overflow-y:auto;
+  }
+  .modal h2{ font-family:'Teko',sans-serif; font-size:24px; margin:0 0 4px; }
+  .modal p{ font-size:12.5px; line-height:1.5; color:#4a423a; margin:6px 0 14px; }
+  .modal label{ font-size:11px; font-family:'Space Mono',monospace; text-transform:uppercase; letter-spacing:0.5px; color:var(--wood-dark); }
+  .modal input[type=text]{
+    width:100%; padding:12px; border-radius:10px; border:1.5px solid rgba(32,28,24,0.2); font-size:13px;
+    margin:6px 0 14px; font-family:'Space Mono',monospace;
+  }
+  .modal .btn{
+    width:100%; padding:13px; border-radius:12px; border:none; font-weight:700; font-size:14px; cursor:pointer; margin-bottom:10px;
+  }
+  .modal .btn.primary{ background:var(--ball); color:white; }
+  .modal .btn.ghost{ background:none; border:1.5px solid rgba(32,28,24,0.2); color:var(--ink); }
+  .modal .btn.danger{ background:none; border:1.5px solid var(--miss); color:var(--miss); }
+  .modal .status{ font-family:'Space Mono',monospace; font-size:11px; margin:-6px 0 14px; }
+  .modal .close-row{ text-align:center; margin-top:6px; }
+  .modal .close-row button{ background:none; border:none; color:var(--wood-dark); font-size:13px; cursor:pointer; padding:8px; }
+
+  @media (min-width:640px){
+    .topbar, .scoreboard, .court-section, .zone-stats, .history{ padding-left:40px; padding-right:40px; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div>
+      <h1>SHOT TRACKER</h1>
+      <div class="sub" id="todayLabel">—</div>
+      <div class="sync-pill"><span class="dot" id="syncDot"></span><span id="syncLabel">not connected</span></div>
+    </div>
+    <button class="icon-btn" id="settingsBtn" aria-label="Settings">⚙</button>
+  </div>
+
+  <div class="date-bar" id="dateBar">
+    <div class="date-bar-field">
+      <label for="dateInput">Logging &amp; viewing day</label>
+      <input type="date" id="dateInput">
+    </div>
+    <button class="today-btn" id="jumpTodayBtn">Today</button>
+  </div>
+  <div class="past-day-flag" id="pastDayFlag">Viewing a past day — new shots you log will be added here, not today.</div>
+
+  <div class="scoreboard">
+    <div class="score-card big accent">
+      <div class="label" id="pctLabel">Today FG%</div>
+      <div class="value" id="todayPct">0<small>%</small></div>
+    </div>
+    <div class="score-card">
+      <div class="label">Made / Att</div>
+      <div class="value mono" id="todayMA" style="font-family:'Space Mono',monospace; font-size:26px;">0/0</div>
+    </div>
+  </div>
+
+  <div class="court-section">
+    <div class="court-frame">
+      <svg id="courtSvg" viewBox="0 0 500 440" xmlns="http://www.w3.org/2000/svg">
+        <!-- court boundary -->
+        <rect x="3" y="3" width="494" height="434" class="court-line" fill="none" stroke="var(--chalk)" stroke-width="3"/>
+        <!-- paint / lane -->
+        <rect x="190" y="3" width="120" height="180" fill="rgba(246,241,228,0.12)" stroke="var(--chalk)" stroke-width="2.5"/>
+        <!-- free-throw circle: dashed half toward the basket, solid half away from it -->
+        <path d="M190,183 A60,60 0 0,1 310,183" fill="none" stroke="var(--chalk)" stroke-width="2.5" stroke-dasharray="6,5"/>
+        <path d="M310,183 A60,60 0 0,1 190,183" fill="none" stroke="var(--chalk)" stroke-width="2.5"/>
+        <!-- backboard + hoop -->
+        <line x1="220" y1="40" x2="280" y2="40" stroke="var(--chalk)" stroke-width="4"/>
+        <circle cx="250" cy="47" r="7" fill="none" stroke="#ff8a3d" stroke-width="3"/>
+        <!-- three point line: single continuous arc -->
+        <path d="M42,3 A212,212 0 1,0 458,3" fill="none" stroke="var(--chalk)" stroke-width="3"/>
+        <!-- free throw spot: dedicated tap target -->
+        <circle cx="250" cy="183" r="9" fill="var(--ball)" stroke="var(--chalk)" stroke-width="2"/>
+        <!-- zone labels -->
+        <g class="zone-labels" font-family="Space Mono, monospace" font-size="10" fill="rgba(246,241,228,0.85)" text-anchor="middle">
+          <text x="250" y="110">PAINT</text>
+          <text x="115" y="90">BASE L</text>
+          <text x="385" y="90">BASE R</text>
+          <text x="140" y="150">MID L</text>
+          <text x="360" y="150">MID R</text>
+          <text x="250" y="215">TOP MID</text>
+          <text x="18" y="55" transform="rotate(-90 18 55)">CORNER 3</text>
+          <text x="482" y="55" transform="rotate(90 482 55)">CORNER 3</text>
+          <text x="83" y="193">WING 3</text>
+          <text x="417" y="193">WING 3</text>
+          <text x="250" y="267">TOP 3</text>
+          <text x="299" y="187" text-anchor="start" fill="var(--ball)" font-weight="bold">FT</text>
+        </g>
+        <!-- shot markers injected here -->
+        <g id="markersLayer"></g>
+        <!-- click catcher on top -->
+        <rect x="0" y="0" width="500" height="440" fill="transparent" id="clickCatcher"/>
+      </svg>
+    </div>
+    <div class="court-hint">Tap a spot to log one shot, or switch to batch entry for a whole set</div>
+  </div>
+
+  <div class="zone-stats">
+    <div class="section-title">
+      <h2>Today by zone</h2>
+      <button class="undo" id="undoBtn">Undo last shot</button>
+    </div>
+    <div id="zoneRows"></div>
+  </div>
+
+  <div class="history">
+    <div class="section-title"><h2>Progress Over Time</h2></div>
+    <button class="refresh-btn" id="refreshBtn">Refresh from Google Sheet</button>
+    <div class="granularity-toggle" id="granularityToggle">
+      <button class="gran-btn" data-gran="day" type="button">Day</button>
+      <button class="gran-btn active" data-gran="week" type="button">Week</button>
+      <button class="gran-btn" data-gran="month" type="button">Month</button>
+    </div>
+    <div class="trend-summary" id="trendSummary"></div>
+    <div class="chart-wrap" id="chartWrap"></div>
+    <div id="historyRows"><div class="empty-note">Connect a Google Sheet in settings, then refresh to see your progress.</div></div>
+  </div>
+
+  <!-- Bottom sheet for logging a shot -->
+  <div class="overlay" id="shotOverlay"></div>
+  <div class="sheet" id="shotSheet">
+    <div class="zone-name" id="sheetZoneName">Zone</div>
+    <div class="zone-pts" id="sheetZonePts">2 PT</div>
+
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="modeSingleBtn" type="button">Single shot</button>
+      <button class="mode-btn" id="modeBatchBtn" type="button">Batch entry</button>
+    </div>
+
+    <div id="singleMode">
+      <div class="shot-actions">
+        <button class="shot-btn miss" id="missBtn">MISS</button>
+        <button class="shot-btn make" id="makeBtn">MAKE</button>
+      </div>
+    </div>
+
+    <div id="batchMode" style="display:none;">
+      <div class="batch-row">
+        <div class="batch-field">
+          <label>Made</label>
+          <input type="number" inputmode="numeric" min="0" id="batchMadeInput" placeholder="0">
+        </div>
+        <div class="batch-field">
+          <label>Out of</label>
+          <input type="number" inputmode="numeric" min="0" id="batchAttemptsInput" placeholder="0">
+        </div>
+      </div>
+      <div class="batch-error" id="batchError"></div>
+      <button class="shot-btn batch-submit" id="logBatchBtn">LOG BATCH</button>
+    </div>
+
+    <div class="cancel-row"><button id="cancelShotBtn">Cancel</button></div>
+  </div>
+
+  <!-- Settings modal -->
+  <div class="modal" id="settingsModal">
+    <div class="backdrop"></div>
+    <div class="panel">
+      <h2>Connect Google Sheet</h2>
+      <p>Paste the web app URL from your deployed Google Apps Script (see setup instructions provided with this file). Shots will sync there automatically as you log them.</p>
+      <label>Apps Script Web App URL</label>
+      <input type="text" id="scriptUrlInput" placeholder="https://script.google.com/macros/s/.../exec">
+      <div class="status" id="settingsStatus"></div>
+      <button class="btn primary" id="saveUrlBtn">Save connection</button>
+      <button class="btn ghost" id="testUrlBtn">Test connection</button>
+      <button class="btn ghost" id="syncPendingBtn">Sync pending shots now</button>
+      <button class="btn danger" id="clearDataBtn">Clear local shot data</button>
+      <div class="close-row"><button id="closeSettingsBtn">Close</button></div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  "use strict";
+
+  var ZONES = {
+    paint:     { name:'Paint',            pts:2 },
+    freethrow: { name:'Free Throw',       pts:1 },
+    baseLmid:  { name:'Left Baseline',    pts:2 },
+    baseRmid:  { name:'Right Baseline',   pts:2 },
+    midL:      { name:'Left Mid-Range',   pts:2 },
+    midR:      { name:'Right Mid-Range',  pts:2 },
+    topmid:    { name:'Top Mid-Range',    pts:2 },
+    corner3L:  { name:'Left Corner 3',    pts:3 },
+    corner3R:  { name:'Right Corner 3',   pts:3 },
+    wing3L:    { name:'Left Wing 3',      pts:3 },
+    wing3R:    { name:'Right Wing 3',     pts:3 },
+    top3:      { name:'Top of Key 3',     pts:3 }
+  };
+  var ZONE_ORDER = ['paint','freethrow','baseLmid','baseRmid','midL','midR','topmid','corner3L','corner3R','wing3L','wing3R','top3'];
+
+  var LS_SHOTS = 'shotTracker_shots_v1';
+  var LS_PENDING = 'shotTracker_pending_v1';
+  var LS_CONFIG = 'shotTracker_config_v1';
+
+  var svg = document.getElementById('courtSvg');
+  var markersLayer = document.getElementById('markersLayer');
+  var clickCatcher = document.getElementById('clickCatcher');
+  var shotSheet = document.getElementById('shotSheet');
+  var shotOverlay = document.getElementById('shotOverlay');
+
+  var pendingTap = null; // {x,y,zoneId}
+
+  function todayStr(){
+    var d = new Date();
+    var m = String(d.getMonth()+1).padStart(2,'0');
+    var day = String(d.getDate()).padStart(2,'0');
+    return d.getFullYear() + '-' + m + '-' + day;
+  }
+
+  function formatDateLabel(dateStr){
+    // dateStr is YYYY-MM-DD; build a Date in local time (not UTC) to avoid off-by-one
+    var parts = dateStr.split('-');
+    var d = new Date(parseInt(parts[0],10), parseInt(parts[1],10)-1, parseInt(parts[2],10));
+    return d.toDateString().toUpperCase();
+  }
+
+  var selectedDate = todayStr();
+
+  function loadShots(){
+    try{ return JSON.parse(localStorage.getItem(LS_SHOTS)) || []; }catch(e){ return []; }
+  }
+  function saveShots(arr){ localStorage.setItem(LS_SHOTS, JSON.stringify(arr)); }
+  function loadPending(){
+    try{ return JSON.parse(localStorage.getItem(LS_PENDING)) || []; }catch(e){ return []; }
+  }
+  function savePending(arr){ localStorage.setItem(LS_PENDING, JSON.stringify(arr)); }
+  function loadConfig(){
+    try{ return JSON.parse(localStorage.getItem(LS_CONFIG)) || {}; }catch(e){ return {}; }
+  }
+  function saveConfig(cfg){ localStorage.setItem(LS_CONFIG, JSON.stringify(cfg)); }
+
+  var HOOP_X = 250, HOOP_Y = 42, ARC_R = 212, PAINT_Y = 183;
+
+  function classify(x, y){
+    var ftdx = x - HOOP_X, ftdy = y - PAINT_Y;
+    if (Math.sqrt(ftdx*ftdx + ftdy*ftdy) <= 24) return 'freethrow';
+    if (x >= 190 && x <= 310 && y <= PAINT_Y) return 'paint';
+    var dx = x - HOOP_X, dy = y - HOOP_Y;
+    var dist = Math.sqrt(dx*dx + dy*dy);
+    var angle = Math.atan2(dx, dy) * 180 / Math.PI; // 0 = straight toward half-court, +/- 90 = along baseline
+    if (dist > ARC_R){
+      if (Math.abs(angle) >= 65) return angle < 0 ? 'corner3L' : 'corner3R';
+      if (Math.abs(angle) >= 32) return angle < 0 ? 'wing3L' : 'wing3R';
+      return 'top3';
+    } else {
+      if (y < PAINT_Y){
+        return x < HOOP_X ? 'baseLmid' : 'baseRmid';
+      }
+      if (angle <= -20) return 'midL';
+      if (angle >= 20) return 'midR';
+      return 'topmid';
+    }
+  }
+
+  function svgPoint(evt){
+    var rect = svg.getBoundingClientRect();
+    var clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+    var clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+    var relX = (clientX - rect.left) / rect.width;
+    var relY = (clientY - rect.top) / rect.height;
+    return { x: relX * 500, y: relY * 440 };
+  }
+
+  clickCatcher.addEventListener('click', function(evt){
+    var p = svgPoint(evt);
+    var zoneId = classify(p.x, p.y);
+    openShotSheet(p.x, p.y, zoneId);
+  });
+
+  var sheetMode = 'single';
+  var singleModeEl = document.getElementById('singleMode');
+  var batchModeEl = document.getElementById('batchMode');
+  var modeSingleBtn = document.getElementById('modeSingleBtn');
+  var modeBatchBtn = document.getElementById('modeBatchBtn');
+  var batchMadeInput = document.getElementById('batchMadeInput');
+  var batchAttemptsInput = document.getElementById('batchAttemptsInput');
+  var batchErrorEl = document.getElementById('batchError');
+
+  function setSheetMode(mode){
+    sheetMode = mode;
+    modeSingleBtn.classList.toggle('active', mode === 'single');
+    modeBatchBtn.classList.toggle('active', mode === 'batch');
+    singleModeEl.style.display = mode === 'single' ? '' : 'none';
+    batchModeEl.style.display = mode === 'batch' ? '' : 'none';
+    batchErrorEl.textContent = '';
+  }
+  modeSingleBtn.addEventListener('click', function(){ setSheetMode('single'); });
+  modeBatchBtn.addEventListener('click', function(){ setSheetMode('batch'); });
+
+  function openShotSheet(x, y, zoneId){
+    pendingTap = { x:x, y:y, zoneId:zoneId };
+    var z = ZONES[zoneId];
+    document.getElementById('sheetZoneName').textContent = z.name;
+    document.getElementById('sheetZonePts').textContent = z.pts + ' PT';
+    batchMadeInput.value = '';
+    batchAttemptsInput.value = '';
+    setSheetMode(sheetMode); // keep last-used mode, but refresh UI state
+    shotOverlay.classList.add('show');
+    shotSheet.classList.add('show');
+  }
+  function closeShotSheet(){
+    shotOverlay.classList.remove('show');
+    shotSheet.classList.remove('show');
+    pendingTap = null;
+  }
+  document.getElementById('cancelShotBtn').addEventListener('click', closeShotSheet);
+  shotOverlay.addEventListener('click', closeShotSheet);
+
+  function buildShot(zoneId, made, x, y, timeOffsetMs){
+    var z = ZONES[zoneId];
+    var now = new Date(Date.now() + (timeOffsetMs || 0));
+    return {
+      id: 'shot_' + now.getTime() + '_' + Math.floor(Math.random()*100000),
+      date: selectedDate,
+      time: now.toTimeString().slice(0,8),
+      zoneId: zoneId,
+      zoneName: z.name,
+      points: z.pts,
+      made: !!made,
+      x: Math.round(x),
+      y: Math.round(y)
+    };
+  }
+
+  function logShot(made){
+    if (!pendingTap) return;
+    var shot = buildShot(pendingTap.zoneId, made, pendingTap.x, pendingTap.y);
+    var shots = loadShots();
+    shots.push(shot);
+    saveShots(shots);
+    drawMarker(shot);
+    renderStats();
+    queueSync(shot);
+    closeShotSheet();
+  }
+  document.getElementById('makeBtn').addEventListener('click', function(){ logShot(true); });
+  document.getElementById('missBtn').addEventListener('click', function(){ logShot(false); });
+
+  document.getElementById('logBatchBtn').addEventListener('click', function(){
+    if (!pendingTap) return;
+    var made = parseInt(batchMadeInput.value, 10);
+    var attempts = parseInt(batchAttemptsInput.value, 10);
+    if (isNaN(made) || isNaN(attempts) || attempts <= 0){
+      batchErrorEl.textContent = 'Enter how many attempts you took, and how many went in.';
+      return;
+    }
+    if (made < 0 || made > attempts){
+      batchErrorEl.textContent = 'Makes can\'t be more than attempts.';
+      return;
+    }
+    batchErrorEl.textContent = '';
+
+    // build an array: `made` makes, rest misses, scattered near the tapped spot
+    var flags = [];
+    for (var i = 0; i < attempts; i++) flags.push(i < made);
+    // shuffle so makes/misses aren't grouped in a fixed order
+    for (var i = flags.length - 1; i > 0; i--){
+      var j = Math.floor(Math.random() * (i + 1));
+      var tmp = flags[i]; flags[i] = flags[j]; flags[j] = tmp;
+    }
+
+    var newShots = flags.map(function(isMade, idx){
+      var jitterX = pendingTap.x + (Math.random() - 0.5) * 26;
+      var jitterY = pendingTap.y + (Math.random() - 0.5) * 26;
+      return buildShot(pendingTap.zoneId, isMade, jitterX, jitterY, idx);
+    });
+
+    var shots = loadShots();
+    newShots.forEach(function(s){ shots.push(s); });
+    saveShots(shots);
+    newShots.forEach(drawMarker);
+    renderStats();
+    queueSyncBatch(newShots);
+    closeShotSheet();
+  });
+
+  function drawMarker(shot){
+    var ns = 'http://www.w3.org/2000/svg';
+    if (shot.made){
+      var c = document.createElementNS(ns, 'circle');
+      c.setAttribute('cx', shot.x);
+      c.setAttribute('cy', shot.y);
+      c.setAttribute('r', 7);
+      c.setAttribute('fill', '#2F9E52');
+      c.setAttribute('stroke', '#F6F1E4');
+      c.setAttribute('stroke-width', '1.5');
+      c.setAttribute('data-shot-id', shot.id);
+      markersLayer.appendChild(c);
+    } else {
+      var g = document.createElementNS(ns, 'g');
+      g.setAttribute('data-shot-id', shot.id);
+      var l1 = document.createElementNS(ns, 'line');
+      l1.setAttribute('x1', shot.x-6); l1.setAttribute('y1', shot.y-6);
+      l1.setAttribute('x2', shot.x+6); l1.setAttribute('y2', shot.y+6);
+      var l2 = document.createElementNS(ns, 'line');
+      l2.setAttribute('x1', shot.x-6); l2.setAttribute('y1', shot.y+6);
+      l2.setAttribute('x2', shot.x+6); l2.setAttribute('y2', shot.y-6);
+      [l1,l2].forEach(function(l){
+        l.setAttribute('stroke', '#C4453B');
+        l.setAttribute('stroke-width', '3');
+        l.setAttribute('stroke-linecap', 'round');
+        g.appendChild(l);
+      });
+      markersLayer.appendChild(g);
+    }
+  }
+
+  function redrawMarkersForSelectedDate(){
+    markersLayer.innerHTML = '';
+    loadShots().filter(function(s){ return s.date === selectedDate; }).forEach(drawMarker);
+  }
+
+  function renderStats(){
+    var shots = loadShots().filter(function(s){ return s.date === selectedDate; });
+    var made = shots.filter(function(s){ return s.made; }).length;
+    var att = shots.length;
+    var pct = att ? Math.round((made/att)*100) : 0;
+    var isToday = selectedDate === todayStr();
+    document.getElementById('todayPct').innerHTML = pct + '<small>%</small>';
+    document.getElementById('todayMA').textContent = made + '/' + att;
+    document.getElementById('todayLabel').textContent = formatDateLabel(selectedDate);
+    document.getElementById('pctLabel').textContent = (isToday ? 'Today' : 'Selected day') + ' FG%';
+    document.getElementById('pastDayFlag').classList.toggle('show', !isToday);
+
+    var rowsHtml = '';
+    ZONE_ORDER.forEach(function(zid){
+      var z = ZONES[zid];
+      var zshots = shots.filter(function(s){ return s.zoneId === zid; });
+      var zmade = zshots.filter(function(s){ return s.made; }).length;
+      var zatt = zshots.length;
+      var zpct = zatt ? Math.round((zmade/zatt)*100) : 0;
+      rowsHtml += '<div class="zone-row ' + (zatt?'':'empty') + '">' +
+        '<div class="zname">' + z.name + '</div>' +
+        '<div class="zbar-wrap"><div class="zbar" style="width:' + zpct + '%"></div></div>' +
+        '<div class="zpct">' + zmade + '/' + zatt + ' &middot; ' + zpct + '%</div>' +
+        '</div>';
+    });
+    document.getElementById('zoneRows').innerHTML = rowsHtml;
+  }
+
+  document.getElementById('undoBtn').addEventListener('click', function(){
+    var shots = loadShots();
+    for (var i = shots.length - 1; i >= 0; i--){
+      if (shots[i].date === selectedDate){
+        shots.splice(i,1);
+        break;
+      }
+    }
+    saveShots(shots);
+    redrawMarkersForSelectedDate();
+    renderStats();
+  });
+
+  var dateInput = document.getElementById('dateInput');
+  dateInput.max = todayStr();
+  dateInput.value = selectedDate;
+  dateInput.addEventListener('change', function(){
+    if (!dateInput.value) { dateInput.value = selectedDate; return; }
+    selectedDate = dateInput.value;
+    redrawMarkersForSelectedDate();
+    renderStats();
+  });
+  document.getElementById('jumpTodayBtn').addEventListener('click', function(){
+    selectedDate = todayStr();
+    dateInput.value = selectedDate;
+    redrawMarkersForSelectedDate();
+    renderStats();
+  });
+
+  /* ---------------- Sync to Google Sheet ---------------- */
+
+  function setSyncIndicator(state){
+    var dot = document.getElementById('syncDot');
+    var label = document.getElementById('syncLabel');
+    dot.className = 'dot ' + (state === 'ok' ? 'on' : state === 'error' ? 'off' : '');
+    var cfg = loadConfig();
+    if (!cfg.scriptUrl){ label.textContent = 'not connected'; return; }
+    if (state === 'ok') label.textContent = 'synced';
+    else if (state === 'error') label.textContent = 'sync error';
+    else label.textContent = 'connected';
+  }
+
+  function queueSync(shot){
+    var cfg = loadConfig();
+    if (!cfg.scriptUrl){ return; }
+    sendShot(shot).catch(function(){
+      var pending = loadPending();
+      pending.push(shot);
+      savePending(pending);
+      setSyncIndicator('error');
+    });
+  }
+
+  function queueSyncBatch(shots){
+    var cfg = loadConfig();
+    if (!cfg.scriptUrl){ return; }
+    sendBatch(shots).catch(function(){
+      var pending = loadPending();
+      shots.forEach(function(s){ pending.push(s); });
+      savePending(pending);
+      setSyncIndicator('error');
+    });
+  }
+
+  function sendBatch(shots){
+    var cfg = loadConfig();
+    return fetch(cfg.scriptUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(shots)
+    }).then(function(res){
+      if (!res.ok) throw new Error('bad status');
+      setSyncIndicator('ok');
+      return res;
+    });
+  }
+
+  function sendShot(shot){
+    var cfg = loadConfig();
+    return fetch(cfg.scriptUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(shot)
+    }).then(function(res){
+      if (!res.ok) throw new Error('bad status');
+      setSyncIndicator('ok');
+      return res;
+    });
+  }
+
+  function flushPending(){
+    var pending = loadPending();
+    if (!pending.length) return Promise.resolve();
+    var remaining = pending.slice();
+    function next(){
+      if (!remaining.length){ savePending([]); setSyncIndicator('ok'); return Promise.resolve(); }
+      var shot = remaining[0];
+      return sendShot(shot).then(function(){
+        remaining.shift();
+        savePending(remaining);
+        return next();
+      });
+    }
+    return next().catch(function(){
+      savePending(remaining);
+      setSyncIndicator('error');
+    });
+  }
+
+  document.getElementById('syncPendingBtn').addEventListener('click', function(){
+    document.getElementById('settingsStatus').textContent = 'Syncing pending shots…';
+    flushPending().then(function(){
+      document.getElementById('settingsStatus').textContent = 'Pending shots synced.';
+    });
+  });
+
+  /* ---------------- Progress over time ---------------- */
+
+  var lastFetchedRows = null; // null = never fetched yet
+  var granularity = 'week';
+
+  function pad2(n){ return String(n).padStart(2,'0'); }
+  function ymd(d){ return d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate()); }
+  function parseDateStr(dstr){
+    var p = dstr.split('-');
+    return new Date(parseInt(p[0],10), parseInt(p[1],10)-1, parseInt(p[2],10));
+  }
+  function fmtShort(d){
+    return d.toLocaleDateString(undefined, { month:'short', day:'numeric' });
+  }
+  function mondayOf(d){
+    var day = d.getDay(); // 0=Sun..6=Sat
+    var diff = (day === 0 ? -6 : 1 - day);
+    var monday = new Date(d.getFullYear(), d.getMonth(), d.getDate() + diff);
+    return monday;
+  }
+
+  function aggregate(rows, gran){
+    var buckets = {};
+    rows.forEach(function(r){
+      var made = (r.made === true || r.made === 'TRUE' || r.made === 'true' || r.made === 1 || r.made === '1');
+      var dstr = r.date;
+      if (!dstr) return;
+      var d = parseDateStr(dstr);
+      var key, label, sortKey;
+      if (gran === 'day'){
+        key = dstr; label = fmtShort(d); sortKey = dstr;
+      } else if (gran === 'week'){
+        var monday = mondayOf(d);
+        var sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
+        key = ymd(monday); label = fmtShort(monday) + '\u2013' + fmtShort(sunday); sortKey = key;
+      } else {
+        key = d.getFullYear() + '-' + pad2(d.getMonth()+1);
+        label = d.toLocaleDateString(undefined, { month:'short', year:'numeric' });
+        sortKey = key + '-01';
+      }
+      if (!buckets[key]) buckets[key] = { made:0, att:0, label:label, sortKey:sortKey };
+      buckets[key].att++;
+      if (made) buckets[key].made++;
+    });
+    var arr = Object.keys(buckets).map(function(k){
+      var b = buckets[k];
+      b.pct = b.att ? Math.round((b.made/b.att)*100) : 0;
+      return b;
+    });
+    arr.sort(function(a,b){ return a.sortKey < b.sortKey ? -1 : (a.sortKey > b.sortKey ? 1 : 0); });
+    return arr;
+  }
+
+  function buildChartSVG(buckets){
+    var width = 500, height = 220, padL = 34, padR = 14, padT = 18, padB = 30;
+    var plotW = width - padL - padR, plotH = height - padT - padB;
+    var n = buckets.length;
+    var maxAtt = Math.max.apply(null, buckets.map(function(b){ return b.att; }));
+    var pts = buckets.map(function(b, i){
+      var x = n === 1 ? (padL + plotW/2) : (padL + (i/(n-1)) * plotW);
+      var y = padT + (1 - b.pct/100) * plotH;
+      var r = maxAtt ? (3.5 + (b.att/maxAtt) * 5.5) : 4;
+      return { x:x, y:y, r:r, b:b };
+    });
+    var grid = [0,25,50,75,100].map(function(v){
+      var y = padT + (1 - v/100) * plotH;
+      return '<line x1="'+padL+'" y1="'+y+'" x2="'+(width-padR)+'" y2="'+y+'" stroke="rgba(32,28,24,0.1)" stroke-width="1"/>' +
+             '<text x="'+(padL-8)+'" y="'+(y+3)+'" font-size="9" fill="#8a7a63" text-anchor="end" font-family="Space Mono, monospace">'+v+'%</text>';
+    }).join('');
+    var linePts = pts.map(function(p){ return p.x + ',' + p.y; }).join(' ');
+    var showLabels = n <= 14;
+    var dots = pts.map(function(p, i){
+      var showEvery = n > 8 ? Math.ceil(n/8) : 1;
+      var labelHtml = '';
+      if (i === 0 || i === n-1 || i % showEvery === 0){
+        labelHtml = '<text x="'+p.x+'" y="'+(height-padB+16)+'" font-size="8.5" fill="#8a7a63" text-anchor="middle" font-family="Inter, sans-serif">'+p.b.label+'</text>';
+      }
+      var valueLabel = showLabels ? '<text x="'+p.x+'" y="'+(p.y-12)+'" font-size="9.5" fill="#201C18" font-weight="700" text-anchor="middle" font-family="Teko, sans-serif">'+p.b.pct+'%</text>' : '';
+      return '<circle cx="'+p.x+'" cy="'+p.y+'" r="'+p.r+'" fill="#E2571A" stroke="#FFFCF5" stroke-width="1.5"/>' + labelHtml + valueLabel;
+    }).join('');
+    return '<svg viewBox="0 0 '+width+' '+height+'" xmlns="http://www.w3.org/2000/svg">' +
+      grid +
+      '<polyline points="'+linePts+'" fill="none" stroke="#E2571A" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>' +
+      dots +
+      '</svg>';
+  }
+
+  function renderTrendSummary(buckets){
+    var el = document.getElementById('trendSummary');
+    if (buckets.length < 2){
+      el.textContent = buckets.length === 1
+        ? 'Only one ' + granularity + ' tracked so far \u2014 keep logging to start seeing a trend.'
+        : '';
+      return;
+    }
+    var first = buckets[0], last = buckets[buckets.length-1];
+    var diff = last.pct - first.pct;
+    var dirClass = diff > 0 ? 'up' : (diff < 0 ? 'down' : '');
+    var arrow = diff > 0 ? '\u2191' : (diff < 0 ? '\u2193' : '\u2192');
+    el.innerHTML = first.label + ': ' + first.pct + '% &rarr; ' + last.label + ': ' + last.pct +
+      '% (<span class="' + dirClass + '">' + arrow + ' ' + (diff > 0 ? '+' : '') + diff + '%</span>)';
+  }
+
+  function renderProgress(){
+    var container = document.getElementById('historyRows');
+    var chartWrap = document.getElementById('chartWrap');
+    var trendEl = document.getElementById('trendSummary');
+    if (lastFetchedRows === null){
+      container.innerHTML = '<div class="empty-note">Connect a Google Sheet in settings, then refresh to see your progress.</div>';
+      chartWrap.innerHTML = '';
+      trendEl.textContent = '';
+      return;
+    }
+    var buckets = aggregate(lastFetchedRows, granularity);
+    if (!buckets.length){
+      container.innerHTML = '<div class="empty-note">No synced shots yet.</div>';
+      chartWrap.innerHTML = '';
+      trendEl.textContent = '';
+      return;
+    }
+    renderTrendSummary(buckets);
+    var chartBuckets = buckets.slice(-20);
+    chartWrap.innerHTML = buildChartSVG(chartBuckets) +
+      (buckets.length > 20 ? '<div class="chart-note">Showing most recent 20 ' + granularity + 's \u2014 full history in the list below</div>' : '');
+
+    var listHtml = '';
+    buckets.slice().reverse().forEach(function(b){
+      listHtml += '<div class="day-row">' +
+        '<div class="ddate">' + b.label + '</div>' +
+        '<div class="dbar-wrap"><div class="dbar" style="width:' + b.pct + '%"></div></div>' +
+        '<div class="dpct">' + b.made + '/' + b.att + ' &middot; ' + b.pct + '%</div>' +
+        '</div>';
+    });
+    container.innerHTML = listHtml;
+  }
+
+  document.querySelectorAll('.gran-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      granularity = btn.getAttribute('data-gran');
+      document.querySelectorAll('.gran-btn').forEach(function(b){ b.classList.toggle('active', b === btn); });
+      renderProgress();
+    });
+  });
+
+  document.getElementById('refreshBtn').addEventListener('click', function(){
+    var cfg = loadConfig();
+    var container = document.getElementById('historyRows');
+    if (!cfg.scriptUrl){
+      container.innerHTML = '<div class="empty-note">Connect a Google Sheet in settings first.</div>';
+      return;
+    }
+    container.innerHTML = '<div class="empty-note">Loading…</div>';
+    fetch(cfg.scriptUrl)
+      .then(function(res){ return res.json(); })
+      .then(function(rows){ lastFetchedRows = rows; renderProgress(); })
+      .catch(function(){
+        container.innerHTML = '<div class="empty-note">Could not load history. Check the connection in settings.</div>';
+      });
+  });
+
+  /* ---------------- Settings modal ---------------- */
+
+  var settingsModal = document.getElementById('settingsModal');
+  document.getElementById('settingsBtn').addEventListener('click', function(){
+    var cfg = loadConfig();
+    document.getElementById('scriptUrlInput').value = cfg.scriptUrl || '';
+    document.getElementById('settingsStatus').textContent = '';
+    settingsModal.classList.add('show');
+  });
+  document.getElementById('closeSettingsBtn').addEventListener('click', function(){
+    settingsModal.classList.remove('show');
+  });
+  settingsModal.querySelector('.backdrop').addEventListener('click', function(){
+    settingsModal.classList.remove('show');
+  });
+
+  document.getElementById('saveUrlBtn').addEventListener('click', function(){
+    var url = document.getElementById('scriptUrlInput').value.trim();
+    saveConfig({ scriptUrl: url });
+    document.getElementById('settingsStatus').textContent = url ? 'Saved.' : 'Cleared connection.';
+    setSyncIndicator(url ? 'connected' : 'none');
+  });
+
+  document.getElementById('testUrlBtn').addEventListener('click', function(){
+    var url = document.getElementById('scriptUrlInput').value.trim();
+    var statusEl = document.getElementById('settingsStatus');
+    if (!url){ statusEl.textContent = 'Paste a URL first.'; return; }
+    statusEl.textContent = 'Testing…';
+    fetch(url).then(function(res){ return res.json(); }).then(function(){
+      statusEl.textContent = 'Connected — sheet responded.';
+    }).catch(function(){
+      statusEl.textContent = 'Could not reach that URL. Check the deployment.';
+    });
+  });
+
+  document.getElementById('clearDataBtn').addEventListener('click', function(){
+    if (!confirm('Clear all locally stored shots on this device? This does not affect your Google Sheet.')) return;
+    localStorage.removeItem(LS_SHOTS);
+    localStorage.removeItem(LS_PENDING);
+    redrawMarkersForSelectedDate();
+    renderStats();
+    document.getElementById('settingsStatus').textContent = 'Local data cleared.';
+  });
+
+  /* ---------------- init ---------------- */
+  redrawMarkersForSelectedDate();
+  renderStats();
+  var cfg = loadConfig();
+  setSyncIndicator(cfg.scriptUrl ? 'connected' : 'none');
+  if (cfg.scriptUrl) flushPending();
+
+})();
+</script>
+</body>
+</html>
