@@ -376,13 +376,14 @@
   <div class="modal" id="settingsModal">
     <div class="backdrop"></div>
     <div class="panel">
-      <h2>Connect Google Sheet</h2>
-      <p>Paste the web app URL from your deployed Google Apps Script (see setup instructions provided with this file). Shots will sync there automatically as you log them.</p>
+      <h2>Google Sheet connection</h2>
+      <p>This file comes pre-connected to a Google Sheet, so any device that opens it starts syncing automatically — no setup needed. Only change this if you want a different device to log to a different sheet.</p>
       <label>Apps Script Web App URL</label>
       <input type="text" id="scriptUrlInput" placeholder="https://script.google.com/macros/s/.../exec">
       <div class="status" id="settingsStatus"></div>
       <button class="btn primary" id="saveUrlBtn">Save connection</button>
       <button class="btn ghost" id="testUrlBtn">Test connection</button>
+      <button class="btn ghost" id="resetUrlBtn">Use built-in sheet</button>
       <button class="btn ghost" id="syncPendingBtn">Sync pending shots now</button>
       <button class="btn danger" id="clearDataBtn">Clear local shot data</button>
       <div class="close-row"><button id="closeSettingsBtn">Close</button></div>
@@ -412,6 +413,11 @@
   var LS_SHOTS = 'shotTracker_shots_v1';
   var LS_PENDING = 'shotTracker_pending_v1';
   var LS_CONFIG = 'shotTracker_config_v1';
+
+  // Built-in Google Sheet connection — every device that opens this file
+  // uses this by default, no per-device setup needed. Can still be
+  // overridden (or cleared) per-device via the settings screen.
+  var DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyCQX64I2yubg1McVU8H6IAJzqFMMVf9nyjSxpjYMtpdYxCuCODqAEwyLuI4wdRIsO2jw/exec';
 
   var svg = document.getElementById('courtSvg');
   var markersLayer = document.getElementById('markersLayer');
@@ -446,9 +452,16 @@
   }
   function savePending(arr){ localStorage.setItem(LS_PENDING, JSON.stringify(arr)); }
   function loadConfig(){
-    try{ return JSON.parse(localStorage.getItem(LS_CONFIG)) || {}; }catch(e){ return {}; }
+    try{
+      var raw = localStorage.getItem(LS_CONFIG);
+      // Nothing saved on this device yet -> use the built-in sheet automatically.
+      if (raw === null) return { scriptUrl: DEFAULT_SCRIPT_URL };
+      var parsed = JSON.parse(raw);
+      return parsed || { scriptUrl: DEFAULT_SCRIPT_URL };
+    }catch(e){ return { scriptUrl: DEFAULT_SCRIPT_URL }; }
   }
   function saveConfig(cfg){ localStorage.setItem(LS_CONFIG, JSON.stringify(cfg)); }
+
 
   var HOOP_X = 250, HOOP_Y = 42, ARC_R = 212, PAINT_Y = 183;
 
@@ -969,6 +982,12 @@
       statusEl.textContent = 'Could not reach that URL. Check the deployment.';
     });
   });
+
+  document.getElementById('resetUrlBtn').addEventListener('click', function(){
+    document.getElementById('scriptUrlInput').value = DEFAULT_SCRIPT_URL;
+    document.getElementById('settingsStatus').textContent = 'Tap "Save connection" to confirm switching back to the built-in sheet.';
+  });
+
 
   document.getElementById('clearDataBtn').addEventListener('click', function(){
     if (!confirm('Clear all locally stored shots on this device? This does not affect your Google Sheet.')) return;
