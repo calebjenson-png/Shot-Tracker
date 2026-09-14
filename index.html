@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>Shot Tracker</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Teko:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=Bungee&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Teko:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=Bungee&family=Anton&display=swap" rel="stylesheet">
 <style>
   :root{
     --wood-light:#6B3FA6;
@@ -87,11 +87,33 @@
     font-family:'Bungee', sans-serif; font-weight:400; font-size:17px; letter-spacing:0.5px;
   }
 
+  /* ---------- Gobby Gang theme flourish ---------- */
+  body.theme-gobby .topbar h1{
+    font-family:'Anton', sans-serif; font-weight:400; letter-spacing:1px;
+    -webkit-text-stroke: 1.25px var(--ink); text-stroke: 1.25px var(--ink);
+  }
+  body.theme-gobby .zone-name{
+    font-family:'Anton', sans-serif; font-weight:400; font-size:24px; letter-spacing:0.5px;
+  }
+  body.theme-gobby .section-title h2{
+    font-family:'Anton', sans-serif; font-weight:400; font-size:18px; letter-spacing:0.5px;
+  }
+  body.theme-gobby .shot-btn, body.theme-gobby .today-btn, body.theme-gobby .mode-btn.active{
+    font-family:'Anton', sans-serif; letter-spacing:0.5px;
+  }
+
+  .pill-row{ display:flex; align-items:center; gap:6px; margin-top:4px; flex-wrap:wrap; }
   .sync-pill{
     display:inline-flex; align-items:center; gap:5px; font-family:'Space Mono',monospace;
     font-size:10px; text-transform:uppercase; letter-spacing:0.5px; padding:3px 8px; border-radius:20px;
-    background:rgba(255,255,255,0.1); margin-top:4px;
+    background:rgba(255,255,255,0.1); margin-top:0;
   }
+  .player-pill{
+    display:inline-flex; align-items:center; gap:4px; font-family:'Inter'; font-weight:600;
+    font-size:11px; padding:3px 9px; border-radius:20px; background:rgba(255,255,255,0.1);
+    border:1px solid rgba(255,255,255,0.25); color:var(--chalk); cursor:pointer;
+  }
+  .player-pill:active{ background:rgba(255,255,255,0.2); }
   .dot{width:6px;height:6px;border-radius:50%; background:#8a8a8a;}
   .dot.on{background:var(--make);}
   .dot.off{background:var(--miss);}
@@ -254,9 +276,9 @@
   .modal h2{ font-family:'Teko',sans-serif; font-size:24px; margin:0 0 4px; }
   .modal p{ font-size:12.5px; line-height:1.5; color:var(--wood-dark); margin:6px 0 14px; }
   .modal label{ font-size:11px; font-family:'Space Mono',monospace; text-transform:uppercase; letter-spacing:0.5px; color:var(--wood-dark); }
-  .modal input[type=text]{
+  .modal input[type=text], .modal select{
     width:100%; padding:12px; border-radius:10px; border:1.5px solid rgba(var(--ink-rgb),0.2); font-size:13px;
-    margin:6px 0 14px; font-family:'Space Mono',monospace;
+    margin:6px 0 14px; font-family:'Space Mono',monospace; color:var(--ink); background:var(--card);
   }
   .modal .btn{
     width:100%; padding:13px; border-radius:12px; border:none; font-weight:700; font-size:14px; cursor:pointer; margin-bottom:10px;
@@ -283,13 +305,17 @@
     <div>
       <h1>SHOT TRACKER</h1>
       <div class="sub" id="todayLabel">—</div>
-      <div class="sync-pill"><span class="dot" id="syncDot"></span><span id="syncLabel">not connected</span></div>
+      <div class="pill-row">
+        <div class="sync-pill"><span class="dot" id="syncDot"></span><span id="syncLabel">not connected</span></div>
+        <button class="player-pill" id="playerPillBtn">👤 <span id="currentPlayerLabel">Select player</span></button>
+      </div>
     </div>
     <div class="topbar-actions">
       <select class="theme-select" id="themeSelect" aria-label="Theme">
         <option value="jazz">Jazz</option>
         <option value="original">Classic</option>
         <option value="arcade">Arcade</option>
+        <option value="gobby">Gobby Gang</option>
       </select>
       <button class="icon-btn" id="settingsBtn" aria-label="Settings">⚙</button>
     </div>
@@ -358,14 +384,14 @@
 
   <div class="zone-stats">
     <div class="section-title">
-      <h2>Today by zone</h2>
+      <h2 id="zoneStatsTitle">Today by zone</h2>
       <button class="undo" id="undoBtn">Undo last shot</button>
     </div>
     <div id="zoneRows"></div>
   </div>
 
   <div class="history">
-    <div class="section-title"><h2>Progress Over Time</h2></div>
+    <div class="section-title"><h2 id="progressTitle">Progress Over Time</h2></div>
     <button class="refresh-btn" id="refreshBtn">Refresh from Google Sheet</button>
     <div class="granularity-toggle" id="granularityToggle">
       <button class="gran-btn" data-gran="day" type="button">Day</button>
@@ -414,6 +440,27 @@
   </div>
 
   <!-- Settings modal -->
+  <!-- Player picker modal -->
+  <div class="modal" id="playerModal">
+    <div class="backdrop"></div>
+    <div class="panel">
+      <h2>Who's shooting?</h2>
+      <p>Pick your name to track your own shots and progress. Everyone on the team can use this same page — your data stays separate.</p>
+      <label>Player</label>
+      <select id="playerSelect">
+        <option value="">Select a player…</option>
+        <option value="__add_new__">+ Add new player…</option>
+      </select>
+      <div id="newPlayerRow" style="display:none;">
+        <label>New player name</label>
+        <input type="text" id="newPlayerInput" placeholder="e.g. Jordan">
+      </div>
+      <div class="status" id="playerModalStatus"></div>
+      <button class="btn primary" id="confirmPlayerBtn">Start tracking</button>
+      <div class="close-row"><button id="closePlayerModalBtn">Cancel</button></div>
+    </div>
+  </div>
+
   <div class="modal" id="settingsModal">
     <div class="backdrop"></div>
     <div class="panel">
@@ -454,6 +501,10 @@
   var LS_SHOTS = 'shotTracker_shots_v1';
   var LS_PENDING = 'shotTracker_pending_v1';
   var LS_CONFIG = 'shotTracker_config_v1';
+  var LS_ROSTER = 'shotTracker_roster_v1';
+  var LS_CURRENT_PLAYER = 'shotTracker_currentPlayer_v1';
+
+  var currentPlayer = 'Unassigned';
 
   // Built-in Google Sheet connection — every device that opens this file
   // uses this by default, no per-device setup needed. Can still be
@@ -482,6 +533,12 @@
       'ink':'#120B2E', 'chalk':'#CFFCFF', 'paper':'#F5EEFC', 'card':'#FCF7FF',
       'ball':'#FF2E9F', 'ball-dark':'#C71585',
       'make':'#00FFA3', 'make-dim':'#CFF7E6', 'miss':'#FF3B5C', 'miss-dim':'#FFD9DE'
+    },
+    gobby: {
+      'wood-light':'#4CA83A', 'wood-mid':'#2E8C3F', 'wood-dark':'#0F5C2A',
+      'ink':'#083D1D', 'chalk':'#FFFFFF', 'paper':'#F1F7EF', 'card':'#FFFFFF',
+      'ball':'#CB4E22', 'ball-dark':'#8F3417',
+      'make':'#2ECC71', 'make-dim':'#D4F5E1', 'miss':'#D64545', 'miss-dim':'#FBDADA'
     }
   };
 
@@ -508,7 +565,7 @@
     // can react to theme changes too, not just solid colors
     document.documentElement.style.setProperty('--ink-rgb', hexToTriplet(set['ink']));
     document.documentElement.style.setProperty('--wood-dark-rgb', hexToTriplet(set['wood-dark']));
-    document.body.classList.remove('theme-jazz','theme-original','theme-arcade');
+    document.body.classList.remove('theme-jazz','theme-original','theme-arcade','theme-gobby');
     document.body.classList.add('theme-'+vars);
     localStorage.setItem(LS_THEME, vars);
     var sel = document.getElementById('themeSelect');
@@ -561,6 +618,116 @@
   }
   function saveConfig(cfg){ localStorage.setItem(LS_CONFIG, JSON.stringify(cfg)); }
 
+  /* ---------------- Players / roster ---------------- */
+
+  function loadRosterLocal(){
+    try{ return JSON.parse(localStorage.getItem(LS_ROSTER)) || []; }catch(e){ return []; }
+  }
+  function saveRosterLocal(arr){ localStorage.setItem(LS_ROSTER, JSON.stringify(arr)); }
+
+  function mergeRoster(a, b){
+    var set = {};
+    a.concat(b).forEach(function(n){ if (n && n.trim()) set[n.trim()] = true; });
+    return Object.keys(set).sort(function(x,y){ return x.localeCompare(y); });
+  }
+
+  function populatePlayerSelect(roster){
+    var sel = document.getElementById('playerSelect');
+    var current = sel.value;
+    sel.innerHTML = '<option value="">Select a player…</option>' +
+      roster.map(function(n){ return '<option value="'+n.replace(/"/g,'&quot;')+'">'+n+'</option>'; }).join('') +
+      '<option value="__add_new__">+ Add new player…</option>';
+    if (roster.indexOf(current) !== -1) sel.value = current;
+  }
+
+  function fetchRosterFromSheet(){
+    var cfg = loadConfig();
+    var local = loadRosterLocal();
+    populatePlayerSelect(local);
+    if (!cfg.scriptUrl) return;
+    fetch(cfg.scriptUrl + '?type=players')
+      .then(function(res){ return res.json(); })
+      .then(function(names){
+        if (!Array.isArray(names)) return;
+        var merged = mergeRoster(local, names);
+        saveRosterLocal(merged);
+        populatePlayerSelect(merged);
+      })
+      .catch(function(){ /* offline or not yet redeployed — local roster still works */ });
+  }
+
+  function addPlayerToRoster(name){
+    var roster = mergeRoster(loadRosterLocal(), [name]);
+    saveRosterLocal(roster);
+    populatePlayerSelect(roster);
+    var cfg = loadConfig();
+    if (cfg.scriptUrl){
+      fetch(cfg.scriptUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ type:'player', name:name })
+      }).catch(function(){ /* best effort — will just get re-added next time roster syncs */ });
+    }
+  }
+
+  function setCurrentPlayer(name){
+    var isFirstEver = localStorage.getItem(LS_CURRENT_PLAYER) === null;
+    currentPlayer = name;
+    localStorage.setItem(LS_CURRENT_PLAYER, name);
+    document.getElementById('currentPlayerLabel').textContent = name;
+    // One-time migration: claim any local shots logged before player profiles existed
+    if (isFirstEver){
+      var shots = loadShots();
+      var migrated = false;
+      shots.forEach(function(s){ if (!s.player){ s.player = name; migrated = true; } });
+      if (migrated) saveShots(shots);
+    }
+    redrawMarkersForSelectedDate();
+    renderStats();
+    if (typeof lastFetchedRows !== 'undefined' && lastFetchedRows !== null) renderProgress();
+  }
+
+  var playerModal = document.getElementById('playerModal');
+  var playerSelect = document.getElementById('playerSelect');
+  var newPlayerRow = document.getElementById('newPlayerRow');
+  var newPlayerInput = document.getElementById('newPlayerInput');
+  var playerModalStatus = document.getElementById('playerModalStatus');
+
+  function openPlayerModal(){
+    fetchRosterFromSheet();
+    var saved = localStorage.getItem(LS_CURRENT_PLAYER);
+    playerSelect.value = saved || '';
+    newPlayerRow.style.display = 'none';
+    newPlayerInput.value = '';
+    playerModalStatus.textContent = '';
+    playerModal.classList.add('show');
+  }
+  function closePlayerModal(){ playerModal.classList.remove('show'); }
+
+  document.getElementById('playerPillBtn').addEventListener('click', openPlayerModal);
+  document.getElementById('closePlayerModalBtn').addEventListener('click', closePlayerModal);
+  playerModal.querySelector('.backdrop').addEventListener('click', function(){
+    // don't allow backdrop-dismiss on first-ever load with no player chosen yet
+    if (localStorage.getItem(LS_CURRENT_PLAYER) !== null) closePlayerModal();
+  });
+
+  playerSelect.addEventListener('change', function(){
+    newPlayerRow.style.display = (playerSelect.value === '__add_new__') ? 'block' : 'none';
+  });
+
+  document.getElementById('confirmPlayerBtn').addEventListener('click', function(){
+    var name;
+    if (playerSelect.value === '__add_new__'){
+      name = newPlayerInput.value.trim();
+      if (!name){ playerModalStatus.textContent = 'Enter a name first.'; return; }
+      addPlayerToRoster(name);
+    } else {
+      name = playerSelect.value;
+      if (!name){ playerModalStatus.textContent = 'Pick a name, or add a new one.'; return; }
+    }
+    setCurrentPlayer(name);
+    closePlayerModal();
+  });
 
   var HOOP_X = 250, HOOP_Y = 42, ARC_R = 212, PAINT_Y = 183;
 
@@ -646,6 +813,7 @@
       id: 'shot_' + now.getTime() + '_' + Math.floor(Math.random()*100000),
       date: selectedDate,
       time: now.toTimeString().slice(0,8),
+      player: currentPlayer,
       zoneId: zoneId,
       zoneName: z.name,
       points: z.pts,
@@ -740,11 +908,11 @@
 
   function redrawMarkersForSelectedDate(){
     markersLayer.innerHTML = '';
-    loadShots().filter(function(s){ return s.date === selectedDate; }).forEach(drawMarker);
+    loadShots().filter(function(s){ return s.date === selectedDate && s.player === currentPlayer; }).forEach(drawMarker);
   }
 
   function renderStats(){
-    var shots = loadShots().filter(function(s){ return s.date === selectedDate; });
+    var shots = loadShots().filter(function(s){ return s.date === selectedDate && s.player === currentPlayer; });
     var made = shots.filter(function(s){ return s.made; }).length;
     var att = shots.length;
     var pct = att ? Math.round((made/att)*100) : 0;
@@ -754,6 +922,7 @@
     document.getElementById('todayLabel').textContent = formatDateLabel(selectedDate);
     document.getElementById('pctLabel').textContent = (isToday ? 'Today' : 'Selected day') + ' FG%';
     document.getElementById('pastDayFlag').classList.toggle('show', !isToday);
+    document.getElementById('zoneStatsTitle').textContent = (isToday ? 'Today' : 'Selected day') + ' by zone' + (currentPlayer ? ' — ' + currentPlayer : '');
 
     var rowsHtml = '';
     ZONE_ORDER.forEach(function(zid){
@@ -774,7 +943,7 @@
   document.getElementById('undoBtn').addEventListener('click', function(){
     var shots = loadShots();
     for (var i = shots.length - 1; i >= 0; i--){
-      if (shots[i].date === selectedDate){
+      if (shots[i].date === selectedDate && shots[i].player === currentPlayer){
         shots.splice(i,1);
         break;
       }
@@ -999,15 +1168,17 @@
     var container = document.getElementById('historyRows');
     var chartWrap = document.getElementById('chartWrap');
     var trendEl = document.getElementById('trendSummary');
+    document.getElementById('progressTitle').textContent = 'Progress Over Time' + (currentPlayer ? ' — ' + currentPlayer : '');
     if (lastFetchedRows === null){
       container.innerHTML = '<div class="empty-note">Connect a Google Sheet in settings, then refresh to see your progress.</div>';
       chartWrap.innerHTML = '';
       trendEl.textContent = '';
       return;
     }
-    var buckets = aggregate(lastFetchedRows, granularity);
+    var playerRows = lastFetchedRows.filter(function(r){ return r.player === currentPlayer; });
+    var buckets = aggregate(playerRows, granularity);
     if (!buckets.length){
-      container.innerHTML = '<div class="empty-note">No synced shots yet.</div>';
+      container.innerHTML = '<div class="empty-note">No synced shots yet for ' + (currentPlayer || 'this player') + '.</div>';
       chartWrap.innerHTML = '';
       trendEl.textContent = '';
       return;
@@ -1107,12 +1278,22 @@
     applyTheme(this.value);
   });
   applyTheme(localStorage.getItem(LS_THEME) || 'jazz');
-  renderStats();
   var cfg = loadConfig();
   setSyncIndicator(cfg.scriptUrl ? 'connected' : 'none');
   if (cfg.scriptUrl) flushPending();
+
+  var savedPlayer = localStorage.getItem(LS_CURRENT_PLAYER);
+  if (savedPlayer){
+    currentPlayer = savedPlayer;
+    document.getElementById('currentPlayerLabel').textContent = savedPlayer;
+    renderStats();
+  } else {
+    renderStats();
+    openPlayerModal();
+  }
 
 })();
 </script>
 </body>
 </html>
+
